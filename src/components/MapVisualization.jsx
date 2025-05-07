@@ -94,8 +94,8 @@ export default function MapVisualization() {
 
  //—— 当 email 确定后，向后端拉取历史 regions ——
  useEffect(() => {
-  if (!email) return;
-  localStorage.setItem('wm_email', email);
+  if (!loadedEmail) return;
+  localStorage.setItem('wm_email', loadedEmail);
 
   (async () => {
     try {
@@ -123,7 +123,7 @@ export default function MapVisualization() {
       toast.error('加载历史区域失败');
     }
   })();
-}, [email]);
+}, [loadedEmail]);
 
 
   // File upload handler for GeoJSON
