@@ -83,14 +83,14 @@ export default function MapVisualization() {
     (async () => {
       try {
         const res = await fetch(
-          `http://54.149.91.212:4000/api/regional_fire_risk?limit=5`
+          `http://54.149.91.212:4000/api/regional_fire_risk?limit=10`
         );
         if (!res.ok) throw new Error(res.statusText);
         let data = await res.json();
         // 确保按 probability 降序，并截取前 5 条
         data = data
           .sort((a, b) => b.probability - a.probability)
-          .slice(0, 5);
+          .slice(0, 10);
         setRiskPoints(data);
       } catch (err) {
         console.error('加载高风险点失败', err);
