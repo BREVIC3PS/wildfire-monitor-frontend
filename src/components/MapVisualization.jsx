@@ -85,39 +85,37 @@ export default function MapVisualization() {
 
  //—— 当 email 确定后，向后端拉取历史 regions ——
  useEffect(() => {
-   if (!email) return;
-   localStorage.setItem('wm_email', email);
+  if (!email) return;
+  localStorage.setItem('wm_email', email);
 
-   (async () => {
-     try {
-       const res = await fetch(
-         `http://54.149.91.212:4000/api/regions?email=${encodeURIComponent(email)}`
-       );
-       if (!res.ok) throw new Error(await res.text());
-       const regions = await res.json();
+  (async () => {
+    try {
+      const res = await fetch(`…/api/regions?email=${encodeURIComponent(email)}`);
+      const regions = await res.json();
 
-       // 把之前的 areas 全部移除
-       const map = featureGroupRef.current._map;
-       areas.forEach(l => map.removeLayer(l));
+      const fg = featureGroupRef.current;
+      // 先清空组里的旧图层
+      fg.clearLayers();
+      setAreas([]);
 
-       // 新建并加入
-       const loaded = regions.map(r => {
-         const layer = L.geoJSON(r.geojson)
-           .addTo(map)
-           .bindPopup(r.name);
-         // 存下后续编辑/删除用的 regionId
-         console.log('[history] got regionId=', r.id);
-         layer.regionId = r.id;
-         return layer;
-       });
-       setAreas(loaded);
-       toast.success('历史订阅区域已加载');
-     } catch (err) {
-       console.error(err);
-       toast.error('加载历史区域失败');
-     }
-   })();
- }, [email]);
+      // 把每个 geojson 加入到同一个 FeatureGroup
+      const loaded = regions.map(r => {
+        const layer = L.geoJSON(r.geojson)
+          .bindPopup(r.name);
+        layer.regionId = r.id;
+        fg.addLayer(layer);
+        return layer;
+      });
+
+      setAreas(loaded);
+      toast.success('历史订阅区域已加载');
+    } catch (err) {
+      console.error(err);
+      toast.error('加载历史区域失败');
+    }
+  })();
+}, [email]);
+
 
   // File upload handler for GeoJSON
   const handleGeoJSONUpload = (e) => {
@@ -195,30 +193,29 @@ export default function MapVisualization() {
     }
   
     const layers = e.layers;
-    const toDelete = [];
-    const deletePromises = [];
-  
-    // 1) 收集要删除的 layer
+    // 1) 收集所有被删图层的 regionId（自动去重）
+    const regionIds = new Set();
     layers.eachLayer(layer => {
-      toDelete.push(layer);
-      deletePromises.push(
-        fetch(
-          `http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${encodeURIComponent(email)}`,
-          { method: 'DELETE' }
-        )
-      );
+      if (layer.regionId != null) {
+        regionIds.add(layer.regionId);
+      }
     });
   
-    // 2) 先更新前端 state，把对应图层移除
+    // 2) 从前端 state 中移除这些图层
     setAreas(prev =>
-      prev.filter(
-        l => !toDelete.some(d => d._leaflet_id === l._leaflet_id)
-      )
+      prev.filter(l => !regionIds.has(l.regionId))
     );
   
-    // 3) 等待所有删除请求
+    // 3) 并行调用删除接口，每个 regionId 只调用一次
     try {
-      await Promise.all(deletePromises);
+      await Promise.all(
+        Array.from(regionIds).map(id =>
+          fetch(
+            `http://54.149.91.212:4000/api/regions/${encodeURIComponent(id)}?email=${encodeURIComponent(email)}`,
+            { method: 'DELETE' }
+          )
+        )
+      );
       toast.success('订阅区域已删除');
     } catch (err) {
       console.error(err);
@@ -324,7 +321,7 @@ export default function MapVisualization() {
             onCreated={onAreaCreated}
             onDeleted={onAreaDeleted}
             onEdited={onAreaEdited}
-            draw={{ rectangle: true, circle: true, polygon: true, marker: false, polyline: false }}
+            draw={{ rectangle: true, polygon: true, polyline: false }}
             edit={{ remove: true }}
           />
         </FeatureGroup>
