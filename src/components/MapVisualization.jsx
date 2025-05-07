@@ -202,7 +202,7 @@ export default function MapVisualization() {
     }
     // 向后端发送删除请求（可以改为 DELETE 方法或带 region id）
     for (const geojson of deletedGeoJSONs) {
-      await fetch('http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}', {
+      await fetch(`http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,7 +230,7 @@ export default function MapVisualization() {
     }
     // 向后端发送更新请求（可以改为 PUT/PATCH 方法或带 region id）
     for (const geojson of editedGeoJSONs) {
-      await fetch('http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}', {
+      await fetch(`http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
