@@ -76,6 +76,15 @@ export default function MapVisualization() {
   const [opacity, setOpacity] = useState(0.5);
   const [threshold, setThreshold] = useState(0.3);
   const [email, setEmail] = useState('');
+  const [loadedEmail, setLoadedEmail] = useState('');
+
+  const handleSubmit = () => {
+    if (!email) {
+      toast.error('请输入邮箱后再提交');
+      return;
+    }
+    setLoadedEmail(email);
+  };
 
  //—— 在本地缓存 email，下次自动加载 ——
  useEffect(() => {
@@ -276,6 +285,9 @@ export default function MapVisualization() {
               placeholder="请输入邮箱" 
             />
           </label>
+          <button onClick={handleSubmit} style={{ marginLeft: 8 }}>
+          提交
+        </button>
         </div>
         <input type="file" accept=".geojson" onChange={handleGeoJSONUpload} />
         <div style={{ marginTop: 8 }}>
