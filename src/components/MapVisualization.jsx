@@ -71,13 +71,13 @@ export default function MapVisualization() {
 
   const handleSubmit = () => {
     if (!email) {
-      toast.error('请输入邮箱后再提交');
+      toast.error('Please enter your email before submitting');
       return;
     }
     setLoadedEmail(email);
   };
 
-  // —— 当 loadedEmail 变化（用户「提交」）时，拉取 regional_fire_risk 表中 probability 最高的前 5 条
+  // —— When loadedEmail changes (user "submits"), fetch the top 5 entries with the highest probability from the regional_fire_risk table
   useEffect(() => {
     if (!loadedEmail) return;
     (async () => {
@@ -87,31 +87,31 @@ export default function MapVisualization() {
         );
         if (!res.ok) throw new Error(res.statusText);
         let data = await res.json();
-        // 确保按 probability 降序，并截取前 5 条
+        // Ensure descending order by probability and take the top 5 entries
         data = data
           .sort((a, b) => b.probability - a.probability)
           .slice(0, 10);
         setRiskPoints(data);
       } catch (err) {
-        console.error('加载高风险点失败', err);
-        toast.error('加载火险预警点失败');
+        console.error('Failed to load high-risk points', err);
+        toast.error('Failed to load fire risk warning points');
       }
     })();
   }, [loadedEmail]);
 
 
- //—— 在本地缓存 email，下次自动加载 ——
+ //—— Cache email locally and auto-load it next time ——
  useEffect(() => {
    const saved = localStorage.getItem('wm_email');
    if (saved)
    {
       setEmail(saved);
       setLoadedEmail(saved);
-      toast.info('已加载上次使用的邮箱');
+      toast.info('Loaded the email used last time');
    }
  }, []);
 
- //—— 当 email 确定后，向后端拉取历史 regions ——
+ //—— When email is confirmed, fetch historical regions from the backend ——
  useEffect(() => {
   if (!loadedEmail) return;
   localStorage.setItem('wm_email', loadedEmail);
@@ -122,11 +122,11 @@ export default function MapVisualization() {
       const regions = await res.json();
 
       const fg = featureGroupRef.current;
-      // 先清空组里的旧图层
+      // First clear old layers in the group
       fg.clearLayers();
       setAreas([]);
 
-      // 把每个 geojson 加入到同一个 FeatureGroup
+      // Add each geojson to the same FeatureGroup
       const loaded = regions.map(r => {
         const layer = L.geoJSON(r.geojson)
           .bindPopup(r.name);
@@ -136,10 +136,10 @@ export default function MapVisualization() {
       });
 
       setAreas(loaded);
-      toast.success('历史订阅区域已加载');
+      toast.success('Historical subscription areas loaded');
     } catch (err) {
       console.error(err);
-      toast.error('加载历史区域失败');
+      toast.error('Failed to load historical areas');
     }
   })();
 }, [loadedEmail]);
@@ -150,7 +150,7 @@ export default function MapVisualization() {
     const file = e.target.files[0];
     if (!file) return;
     if (!email) {
-      toast.error('请先输入电子邮箱');
+      toast.error('Please enter your email first');
       return;
     }
     const reader = new FileReader();
@@ -159,20 +159,20 @@ export default function MapVisualization() {
         const geojson = JSON.parse(reader.result);
         const map = featureGroupRef.current._map;
         const layer = L.geoJSON(geojson).addTo(map);
-        toast.info('GeoJSON 区域已添加');
-        // 保存到后端
+        toast.info('GeoJSON area added');
+        // Save to backend
         await fetch('http://54.149.91.212:4000/api/regions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email,
-            name: '前端上传区域',
+            name: 'Frontend uploaded area',
             geojson
           })
         });
-        toast.success('区域已保存到数据库');
+        toast.success('Area saved to database');
       } catch (err) {
-        toast.error('无效的 GeoJSON 文件');
+        toast.error('Invalid GeoJSON file');
       }
     };
     reader.readAsText(file);
@@ -183,13 +183,13 @@ export default function MapVisualization() {
     const layer = e.layer;
     const geojson = layer.toGeoJSON();
     setAreas(prev => [...prev, layer]);
-    toast.success('订阅区域已创建');
+    toast.success('Subscription area created');
     if (!email) {
-      toast.error('请先在上传框中输入电子邮箱');
+      toast.error('Please enter your email in the upload box first');
       return;
     }
-    // 保存区域到后端
-    // 1) 调 API 创建
+    // Save area to backend
+    // 1) Call API to create
     try {
       const res = await fetch('http://54.149.91.212:4000/api/regions', {
         method: 'POST',
@@ -201,24 +201,24 @@ export default function MapVisualization() {
         })
       });
       const { regionId } = await res.json();
-      // 2) 把 regionId 绑到 layer 上
+      // 2) Bind regionId to layer
       layer.regionId = regionId;
-      toast.success(`区域已保存（ID=${regionId}）`);
+      toast.success(`Area saved (ID=${regionId})`);
     } catch (err) {
       console.error(err);
-      toast.error('保存区域到数据库失败');
+      toast.error('Failed to save area to database');
     }
   };
 
   // Drawing deleted handler
   const onAreaDeleted = async (e) => {
     if (!email) {
-      toast.error('请先在上传框中输入电子邮箱');
+      toast.error('Please enter your email in the upload box first');
       return;
     }
   
     const layers = e.layers;
-    // 1) 收集所有被删图层的 regionId（自动去重）
+    // 1) Collect all regionIds of deleted layers (automatically deduplicated)
     const regionIds = new Set();
     layers.eachLayer(layer => {
       if (layer.regionId != null) {
@@ -226,12 +226,12 @@ export default function MapVisualization() {
       }
     });
   
-    // 2) 从前端 state 中移除这些图层
+    // 2) Remove these layers from frontend state
     setAreas(prev =>
       prev.filter(l => !regionIds.has(l.regionId))
     );
   
-    // 3) 并行调用删除接口，每个 regionId 只调用一次
+    // 3) Call delete API in parallel, each regionId only called once
     try {
       await Promise.all(
         Array.from(regionIds).map(id =>
@@ -241,10 +241,10 @@ export default function MapVisualization() {
           )
         )
       );
-      toast.success('订阅区域已删除');
+      toast.success('Subscription areas deleted');
     } catch (err) {
       console.error(err);
-      toast.error('删除区域时出错，请稍后重试');
+      toast.error('Error occurred while deleting areas, please try again later');
     }
   };
 
@@ -269,17 +269,17 @@ export default function MapVisualization() {
               type="email" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
-              placeholder="请输入邮箱" 
+              placeholder="Please enter your email" 
             />
           </label>
           <button onClick={handleSubmit} style={{ marginLeft: 8 }}>
-          提交
+          Submit
         </button>
         </div>
         <input type="file" accept=".geojson" onChange={handleGeoJSONUpload} />
         <div style={{ marginTop: 8 }}>
           <label>
-            预测时段: 
+            Prediction Period: 
             <select value={period} onChange={e => setPeriod(e.target.value)}>
               <option value="6h">6h</option>
               <option value="12h">12h</option>
@@ -289,13 +289,13 @@ export default function MapVisualization() {
         </div>
         <div style={{ marginTop: 8 }}>
           <label>
-            透明度: {opacity}
+            Opacity: {opacity}
             <input type="range" min={0} max={1} step={0.1} value={opacity} onChange={e => setOpacity(+e.target.value)} />
           </label>
         </div>
         <div style={{ marginTop: 8 }}>
           <label>
-            阈值: {threshold}
+            Threshold: {threshold}
             <input type="range" min={0} max={1} step={0.1} value={threshold} onChange={e => setThreshold(+e.target.value)} />
           </label>
         </div>
@@ -324,15 +324,15 @@ export default function MapVisualization() {
           />
         </FeatureGroup>
 
-        {/* 从数据库拉取的 high-risk markers */}
+        {/* High-risk markers fetched from the database */}
         {riskPoints.map(pt => (
           <Marker
             key={pt.id}
             position={[pt.latitude, pt.longitude]}
           >
             <Popup>
-              火险概率：{(pt.probability * 100).toFixed(1)}%<br/>
-              时间：{new Date(pt.timestamp).toLocaleString()}
+              Fire risk probability: {(pt.probability * 100).toFixed(1)}%<br/>
+              Time: {new Date(pt.timestamp).toLocaleString()}
             </Popup>
           </Marker>
         ))}
