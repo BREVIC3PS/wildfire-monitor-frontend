@@ -93,7 +93,7 @@ export default function MapVisualization() {
         const layer = L.geoJSON(geojson).addTo(map);
         toast.info('GeoJSON 区域已添加');
         // 保存到后端
-        await fetch('http://localhost:4000/api/regions', {
+        await fetch('http://54.149.91.212:4000/api/regions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -124,7 +124,7 @@ export default function MapVisualization() {
       return;
     }
     // 保存区域到后端
-    await fetch('http://localhost:4000/api/regions', {
+    await fetch('http://54.149.91.212:4000/api/regions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
