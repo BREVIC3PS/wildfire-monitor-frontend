@@ -11,6 +11,25 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Dummy heatmap data for different prediction periods
+const allHeatData = {
+  '6h': [
+    [34.055, -118.245, 0.6],
+    [34.065, -118.255, 0.4],
+    [34.045, -118.235, 0.7],
+  ],
+  '12h': [
+    [34.055, -118.245, 0.8],
+    [34.065, -118.255, 0.6],
+    [34.045, -118.235, 0.5],
+  ],
+  '24h': [
+    [34.055, -118.245, 0.9],
+    [34.065, -118.255, 0.7],
+    [34.045, -118.235, 0.6],
+  ],
+};
+
 // Fix Leaflet's default icon paths
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -21,11 +40,11 @@ L.Icon.Default.mergeOptions({
 
 
 // Helper: simple check if any fire point within layer bounds
-function checkRisk(layer) {
-  const bounds = layer.getBounds ? layer.getBounds() : null;
-  if (!bounds) return false;
-  return riskPoints.some(pt => bounds.contains(L.latLng(pt.position)));
-}
+// function checkRisk(layer) {
+//   const bounds = layer.getBounds ? layer.getBounds() : null;
+//   if (!bounds) return false;
+//   return riskPoints.some(pt => bounds.contains(L.latLng(pt.position)));
+// }
 
 // Heatmap overlay component using Leaflet.heat
 function HeatmapOverlay({ points, options }) {
@@ -84,7 +103,12 @@ export default function MapVisualization() {
  //—— 在本地缓存 email，下次自动加载 ——
  useEffect(() => {
    const saved = localStorage.getItem('wm_email');
-   if (saved) setEmail(saved);
+   if (saved)
+   {
+      setEmail(saved);
+      setLoadedEmail(saved);
+      toast.info('已加载上次使用的邮箱');
+   }
  }, []);
 
  //—— 当 email 确定后，向后端拉取历史 regions ——
@@ -313,15 +337,6 @@ export default function MapVisualization() {
           </Marker>
         ))}
 
-        {/* Weather Points */}
-        {weatherPoints.map(st => (
-          <Marker key={st.id} position={st.position}>
-            <Popup>
-              Temperature: {st.temp}°C<br />
-              Condition: {st.condition}
-            </Popup>
-          </Marker>
-        ))}
       </MapContainer>
     </div>
   );
