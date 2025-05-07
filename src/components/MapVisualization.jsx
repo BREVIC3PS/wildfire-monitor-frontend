@@ -90,7 +90,7 @@ export default function MapVisualization() {
 
   (async () => {
     try {
-      const res = await fetch(`…/api/regions?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`http://54.149.91.212:4000/api/regions?email=${encodeURIComponent(email)}`);
       const regions = await res.json();
 
       const fg = featureGroupRef.current;
