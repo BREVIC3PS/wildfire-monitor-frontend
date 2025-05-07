@@ -165,16 +165,25 @@ export default function MapVisualization() {
       return;
     }
     // 保存区域到后端
-    await fetch('http://54.149.91.212:4000/api/regions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        name: '手动画区域',
-        geojson
-      })
-    });
-    toast.success('区域已保存到数据库');
+    // 1) 调 API 创建
+    try {
+      const res = await fetch('http://54.149.91.212:4000/api/regions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name: 'New Area' + new Date().toISOString(),
+          geojson
+        })
+      });
+      const { regionId } = await res.json();
+      // 2) 把 regionId 绑到 layer 上
+      layer.regionId = regionId;
+      toast.success(`区域已保存（ID=${regionId}）`);
+    } catch (err) {
+      console.error(err);
+      toast.error('保存区域到数据库失败');
+    }
   };
 
   // Drawing deleted handler
@@ -193,7 +202,7 @@ export default function MapVisualization() {
     }
     // 向后端发送删除请求（可以改为 DELETE 方法或带 region id）
     for (const geojson of deletedGeoJSONs) {
-      await fetch('http://54.149.91.212:4000/api/regions', {
+      await fetch('http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -221,7 +230,7 @@ export default function MapVisualization() {
     }
     // 向后端发送更新请求（可以改为 PUT/PATCH 方法或带 region id）
     for (const geojson of editedGeoJSONs) {
-      await fetch('http://54.149.91.212:4000/api/regions', {
+      await fetch('http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${email}', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
