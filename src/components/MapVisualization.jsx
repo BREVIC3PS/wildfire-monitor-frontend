@@ -19,36 +19,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Dummy satellite fire points data
-const firePoints = [
-  { id: 1, position: [34.1, -118.2], name: 'Fire A', time: '2025-04-26 10:00 UTC' },
-  { id: 2, position: [34.05, -118.3], name: 'Fire B', time: '2025-04-26 11:30 UTC' },
-];
-
-// Dummy weather stations data
-const weatherPoints = [
-  { id: 1, position: [34.06, -118.24], temp: 25, condition: 'Sunny' },
-  { id: 2, position: [34.0, -118.28], temp: 22, condition: 'Cloudy' },
-];
-
-// Dummy heatmap data for different prediction periods
-const allHeatData = {
-  '6h': [
-    [34.055, -118.245, 0.6],
-    [34.065, -118.255, 0.4],
-    [34.045, -118.235, 0.7],
-  ],
-  '12h': [
-    [34.055, -118.245, 0.8],
-    [34.065, -118.255, 0.6],
-    [34.045, -118.235, 0.5],
-  ],
-  '24h': [
-    [34.055, -118.245, 0.9],
-    [34.065, -118.255, 0.7],
-    [34.045, -118.235, 0.6],
-  ],
-};
 
 // Helper: simple check if any fire point within layer bounds
 function checkRisk(layer) {
@@ -69,6 +39,8 @@ function HeatmapOverlay({ points, options }) {
 }
 
 export default function MapVisualization() {
+  // —— state for high-risk points from DB ——
+  const [riskPoints, setRiskPoints] = useState([]);
   const center = [34.0522, -118.2437]; // Los Angeles
   const featureGroupRef = useRef(null);
   const [areas, setAreas] = useState([]);
@@ -85,6 +57,29 @@ export default function MapVisualization() {
     }
     setLoadedEmail(email);
   };
+
+  // —— 当 loadedEmail 变化（用户「提交」）时，拉取 regional_fire_risk 表中 probability 最高的前 5 条
+  useEffect(() => {
+    if (!loadedEmail) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          `http://54.149.91.212:4000/api/regional_fire_risk?limit=5`
+        );
+        if (!res.ok) throw new Error(res.statusText);
+        let data = await res.json();
+        // 确保按 probability 降序，并截取前 5 条
+        data = data
+          .sort((a, b) => b.probability - a.probability)
+          .slice(0, 5);
+        setRiskPoints(data);
+      } catch (err) {
+        console.error('加载高风险点失败', err);
+        toast.error('加载火险预警点失败');
+      }
+    })();
+  }, [loadedEmail]);
+
 
  //—— 在本地缓存 email，下次自动加载 ——
  useEffect(() => {
@@ -338,12 +333,15 @@ export default function MapVisualization() {
           />
         </FeatureGroup>
 
-        {/* Fire Points */}
-        {firePoints.map(pt => (
-          <Marker key={pt.id} position={pt.position}>
+        {/* 从数据库拉取的 high-risk markers */}
+        {riskPoints.map(pt => (
+          <Marker
+            key={pt.id}
+            position={[pt.latitude, pt.longitude]}
+          >
             <Popup>
-              <strong>{pt.name}</strong><br />
-              Time: {pt.time}
+              火险概率：{(pt.probability * 100).toFixed(1)}%<br/>
+              时间：{new Date(pt.timestamp).toLocaleString()}
             </Popup>
           </Marker>
         ))}
