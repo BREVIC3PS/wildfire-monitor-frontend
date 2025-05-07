@@ -106,6 +106,7 @@ export default function MapVisualization() {
            .addTo(map)
            .bindPopup(r.name);
          // 存下后续编辑/删除用的 regionId
+         console.log('[history] got regionId=', r.id);
          layer.regionId = r.id;
          return layer;
        });
@@ -190,28 +191,27 @@ export default function MapVisualization() {
   const onAreaDeleted = async (e) => {
     const layers = e.layers;
     const deletedGeoJSONs = [];
-    // 从 state 中移除删除的图层
-    layers.eachLayer(layer => {
-      deletedGeoJSONs.push(layer.toGeoJSON());
-      setAreas(prev => prev.filter(l => l._leaflet_id !== layer._leaflet_id));
-    });
-    toast.success('订阅区域已删除');
     if (!email) {
       toast.error('请先在上传框中输入电子邮箱');
       return;
     }
-    // 向后端发送删除请求（可以改为 DELETE 方法或带 region id）
-    for (const geojson of deletedGeoJSONs) {
-      await fetch(`http://54.149.91.212:4000/api/regions/${layers.regionId}?email=${email}`, {
+    // 从 state 中移除删除的图层
+    layers.eachLayer(async layer => {
+      const id = layer.regionId;
+      // 从 state 删除
+      setAreas(prev => prev.filter(l => l._leaflet_id !== layer._leaflet_id));
+      // 调用删除接口
+      await fetch(`http://54.149.91.212:4000/api/regions/${id}?email=${email}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          geojson
-        })
       });
+    });
+    try {
+      await Promise.all(deletePromises);
+      toast.success('订阅区域已删除');
+    } catch (err) {
+      console.error(err);
+      toast.error('删除区域时出错，请稍后重试');
     }
-    toast.success('数据库中的区域已删除');
   };
 
   // Drawing edited handler
