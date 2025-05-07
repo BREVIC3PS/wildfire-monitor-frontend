@@ -24,7 +24,7 @@ L.Icon.Default.mergeOptions({
 function checkRisk(layer) {
   const bounds = layer.getBounds ? layer.getBounds() : null;
   if (!bounds) return false;
-  return firePoints.some(pt => bounds.contains(L.latLng(pt.position)));
+  return riskPoints.some(pt => bounds.contains(L.latLng(pt.position)));
 }
 
 // Heatmap overlay component using Leaflet.heat
@@ -94,7 +94,7 @@ export default function MapVisualization() {
 
   (async () => {
     try {
-      const res = await fetch(`http://54.149.91.212:4000/api/regions?email=${encodeURIComponent(email)}`);
+      const res = await fetch(`http://54.149.91.212:4000/api/regions?email=${encodeURIComponent(loadedEmail)}`);
       const regions = await res.json();
 
       const fg = featureGroupRef.current;
@@ -160,9 +160,6 @@ export default function MapVisualization() {
     const geojson = layer.toGeoJSON();
     setAreas(prev => [...prev, layer]);
     toast.success('订阅区域已创建');
-    if (checkRisk(layer)) {
-      toast.warn('该区域内检测到火点风险！');
-    }
     if (!email) {
       toast.error('请先在上传框中输入电子邮箱');
       return;
@@ -225,35 +222,6 @@ export default function MapVisualization() {
       console.error(err);
       toast.error('删除区域时出错，请稍后重试');
     }
-  };
-
-  // Drawing edited handler
-  const onAreaEdited = async (e) => {
-    const layers = e.layers;
-    const editedGeoJSONs = [];
-    // 更新 state 中对应的图层（Leaflet 会原地修改 layer，因此这里只同步后端）
-    layers.eachLayer(layer => {
-      const geojson = layer.toGeoJSON();
-      editedGeoJSONs.push(geojson);
-    });
-    toast.success('订阅区域已更新');
-    if (!email) {
-      toast.error('请先在上传框中输入电子邮箱');
-      return;
-    }
-    // 向后端发送更新请求（可以改为 PUT/PATCH 方法或带 region id）
-    for (const geojson of editedGeoJSONs) {
-      await fetch(`http://54.149.91.212:4000/api/regions/${layers.regionId}?email=${email}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          name: '手动画区域（已编辑）',
-          geojson
-        })
-      });
-    }
-    toast.success('数据库中的区域已更新');
   };
 
   useEffect(() => {
@@ -327,7 +295,6 @@ export default function MapVisualization() {
             position="topright"
             onCreated={onAreaCreated}
             onDeleted={onAreaDeleted}
-            onEdited={onAreaEdited}
             draw={{ rectangle: true, polygon: true, polyline: false }}
             edit={{ remove: true }}
           />
