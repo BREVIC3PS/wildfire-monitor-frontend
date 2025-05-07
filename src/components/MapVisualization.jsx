@@ -77,6 +77,47 @@ export default function MapVisualization() {
   const [threshold, setThreshold] = useState(0.3);
   const [email, setEmail] = useState('');
 
+ //—— 在本地缓存 email，下次自动加载 ——
+ useEffect(() => {
+   const saved = localStorage.getItem('wm_email');
+   if (saved) setEmail(saved);
+ }, []);
+
+ //—— 当 email 确定后，向后端拉取历史 regions ——
+ useEffect(() => {
+   if (!email) return;
+   localStorage.setItem('wm_email', email);
+
+   (async () => {
+     try {
+       const res = await fetch(
+         `http://54.149.91.212:4000/api/regions?email=${encodeURIComponent(email)}`
+       );
+       if (!res.ok) throw new Error(await res.text());
+       const regions = await res.json();
+
+       // 把之前的 areas 全部移除
+       const map = featureGroupRef.current._map;
+       areas.forEach(l => map.removeLayer(l));
+
+       // 新建并加入
+       const loaded = regions.map(r => {
+         const layer = L.geoJSON(r.geojson)
+           .addTo(map)
+           .bindPopup(r.name);
+         // 存下后续编辑/删除用的 regionId
+         layer.regionId = r.id;
+         return layer;
+       });
+       setAreas(loaded);
+       toast.success('历史订阅区域已加载');
+     } catch (err) {
+       console.error(err);
+       toast.error('加载历史区域失败');
+     }
+   })();
+ }, [email]);
+
   // File upload handler for GeoJSON
   const handleGeoJSONUpload = (e) => {
     const file = e.target.files[0];
@@ -134,6 +175,63 @@ export default function MapVisualization() {
       })
     });
     toast.success('区域已保存到数据库');
+  };
+
+  // Drawing deleted handler
+  const onAreaDeleted = async (e) => {
+    const layers = e.layers;
+    const deletedGeoJSONs = [];
+    // 从 state 中移除删除的图层
+    layers.eachLayer(layer => {
+      deletedGeoJSONs.push(layer.toGeoJSON());
+      setAreas(prev => prev.filter(l => l._leaflet_id !== layer._leaflet_id));
+    });
+    toast.success('订阅区域已删除');
+    if (!email) {
+      toast.error('请先在上传框中输入电子邮箱');
+      return;
+    }
+    // 向后端发送删除请求（可以改为 DELETE 方法或带 region id）
+    for (const geojson of deletedGeoJSONs) {
+      await fetch('http://54.149.91.212:4000/api/regions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          geojson
+        })
+      });
+    }
+    toast.success('数据库中的区域已删除');
+  };
+
+  // Drawing edited handler
+  const onAreaEdited = async (e) => {
+    const layers = e.layers;
+    const editedGeoJSONs = [];
+    // 更新 state 中对应的图层（Leaflet 会原地修改 layer，因此这里只同步后端）
+    layers.eachLayer(layer => {
+      const geojson = layer.toGeoJSON();
+      editedGeoJSONs.push(geojson);
+    });
+    toast.success('订阅区域已更新');
+    if (!email) {
+      toast.error('请先在上传框中输入电子邮箱');
+      return;
+    }
+    // 向后端发送更新请求（可以改为 PUT/PATCH 方法或带 region id）
+    for (const geojson of editedGeoJSONs) {
+      await fetch('http://54.149.91.212:4000/api/regions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name: '手动画区域（已编辑）',
+          geojson
+        })
+      });
+    }
+    toast.success('数据库中的区域已更新');
   };
 
   useEffect(() => {
@@ -203,6 +301,8 @@ export default function MapVisualization() {
           <EditControl
             position="topright"
             onCreated={onAreaCreated}
+            onDeleted={onAreaDeleted}
+            onEdited={onAreaEdited}
             draw={{ rectangle: true, circle: true, polygon: true, marker: false, polyline: false }}
             edit={{ remove: true }}
           />
