@@ -189,22 +189,34 @@ export default function MapVisualization() {
 
   // Drawing deleted handler
   const onAreaDeleted = async (e) => {
-    const layers = e.layers;
-    const deletedGeoJSONs = [];
     if (!email) {
       toast.error('请先在上传框中输入电子邮箱');
       return;
     }
-    // 从 state 中移除删除的图层
-    layers.eachLayer(async layer => {
-      const id = layer.regionId;
-      // 从 state 删除
-      setAreas(prev => prev.filter(l => l._leaflet_id !== layer._leaflet_id));
-      // 调用删除接口
-      await fetch(`http://54.149.91.212:4000/api/regions/${id}?email=${email}`, {
-        method: 'DELETE',
-      });
+  
+    const layers = e.layers;
+    const toDelete = [];
+    const deletePromises = [];
+  
+    // 1) 收集要删除的 layer
+    layers.eachLayer(layer => {
+      toDelete.push(layer);
+      deletePromises.push(
+        fetch(
+          `http://54.149.91.212:4000/api/regions/${layer.regionId}?email=${encodeURIComponent(email)}`,
+          { method: 'DELETE' }
+        )
+      );
     });
+  
+    // 2) 先更新前端 state，把对应图层移除
+    setAreas(prev =>
+      prev.filter(
+        l => !toDelete.some(d => d._leaflet_id === l._leaflet_id)
+      )
+    );
+  
+    // 3) 等待所有删除请求
     try {
       await Promise.all(deletePromises);
       toast.success('订阅区域已删除');
